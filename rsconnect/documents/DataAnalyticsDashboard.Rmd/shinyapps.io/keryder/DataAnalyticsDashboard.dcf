@@ -5,7 +5,7 @@ account: keryder
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 14768997
-bundleId: 10298904
+bundleId: 10299197
 url: https://keryder.shinyapps.io/DataAnalyticsDashboard/
 version: 1
 asMultiple: FALSE

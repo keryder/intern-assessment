@@ -7,53 +7,77 @@ runtime: shiny
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r, echo = FALSE, warning = FALSE, message = FALSE}
-# all included libraries used
+```{r Libraries, echo = FALSE, warning = FALSE, message = FALSE}
+# reading files
 library(tidyverse)
+# parsing data
 library(dplyr)
+# creating graphs
 library(ggplot2)
+# reactive elements
 library(shiny)
+# interactive graphs
 library(plotly)
+# working with times
 library(hms)
 ```
 
 ```{r Fetching Data, eval=TRUE, echo=FALSE}
 # reactive function so any updates to data will update the app
 waterData <- reactive({
-  # read_delim instead of read_csv2 so doubles are read correctly
+  # reading data from github for auto updates upon commits
   data <- read_delim("https://raw.githubusercontent.com/keryder/intern-assessment/main/RawData.csv", delim = ";")
   # create new columns for dates and times
-  data<- mutate(data, Date = substring(Timestamp, 1, 10))
+  data <- mutate(data, Date = substring(Timestamp, 1, 10))
   # converting to hms format, format specified to avoid lossy conversions
-  data<- mutate(data, Time = hms::as.hms(format(Timestamp, "%H:%M:%S")))
-  # create vector with last 3 days
-  recent <- data%>%
+  data <- mutate(data, Time = hms::as.hms(format(Timestamp, "%H:%M:%S")))
+  # anomaly detection
+  data <- filter(data, WaterLevel > 30 & WaterLevel < 60)
+  return(data)
+})
+```
+
+```{r Creating Dropdown, echo = FALSE}
+# creates a dropdown menu to update cycles, runtime, and plot
+dropdown <- renderUI({
+  data <- waterData()
+  # unique dates, no duplicates
+  data <- unique(data$Date)
+  selectInput("selectDate", "Data Since:", data)
+})
+
+dropdown
+
+# reads input
+getDateSelected <- renderText({
+  input$selectDate
+})
+# selecting all days since day selected
+dataFromSelected <- reactive({
+  data <- waterData()
+  # create vector with all unique dates
+  dates <- data%>%
     pull(Date)%>%
-    unique()%>%
-    tail(3)
-  # filter data to only include last 10 days
-  data%>%
-    filter(Date %in% recent)
+    unique()
+  # selecting all days since day selected
+  for(i in seq(length(dates),1)) {
+    if(dates[i] == getDateSelected()) {
+      data <- filter(data, Date %in% tail(dates, n = length(dates) - i + 1))
+      break
+    }
+  }
+  return(data)
 })
 ```
 
 ```{r Getting Stats, echo = FALSE}
-# gets all data taken from current day
-getDataToday <- reactive({
-  data <- waterData()
-  data <- filter(data, Date == data$Date[nrow(data)])
-  data
-})
 # assigning values to variables for display boxes
 getRuntime <- renderText({
-  data <- waterData()
+  data <- dataFromSelected()
   runtime <- 0
-  for(i in nrow(data):2) {
-    if(data$WaterLevel[i] - data$WaterLevel[i-1] > 1) {
-      runtime = runtime + data$Time[i] - data$Time[i-1]
-    }
-    if(data$WaterLevel[i] - data$WaterLevel[i-1] < 0) {
-      break
+  for(i in 1:(nrow(data) - 1)) {
+    if(data$WaterLevel[i + 1] - data$WaterLevel[i] > 3) {
+      runtime = runtime + data$Time[i+1] - data$Time[i]
     }
   }
   # converting runtime format
@@ -62,51 +86,47 @@ getRuntime <- renderText({
   minutes = round(runtime / 60)
   runtime = runtime - (minutes * 60)
   if(hours == 0) {
-    paste(minutes, "mins")
+    return(paste(minutes, "mins"))
   }
   else {
-    paste(hours,"hrs",minutes,"mins")
+    return(paste(hours,"hrs",minutes,"mins"))
   }
 })
+# gets last water level entry
 getWaterLevel <- renderText({
-  data <- getDataToday()
+  data <- waterData()
   waterLevel <- data$WaterLevel[nrow(data)]
-  waterLevel
+  return(waterLevel)
 })
 getCycles <- renderText({
-  
-  data <- getDataToday()
-  cycles <- 1
-  cycles
+  data <- dataFromSelected()
+  cycles <- 0
+  for(i in 1:(nrow(data) - 1)) {
+    if(data$WaterLevel[i + 1] - data$WaterLevel[i] > 3) {
+      cycles = cycles + 1
+    }
+  }
+  return(cycles)
 })
-```
-
-```{r Creating Dropdown, echo = FALSE}
-# creates a dropdown menu to update cycles, runtime, and plot
-dropdown <- renderUI({
-  data <- waterData()
-  data <- unique(data$Date)
-  selectInput("cycles_select", "Cycles Since:", data)
-})
-dropdown
 ```
 
 <div style= "display: flex; gap: 20px">
-  <div style="border: 3px solid #ccc; padding: 0px 5px; flex: 1;">
-**Last Runtime**: `r getRuntime`
-  </div>
-  <div style="border: 3px solid #ccc; padding: 0px 5px; flex: 1;">
+  <div style="border: 3px solid #ccc; padding: 1px 5px; flex: 1;">
 **Current Water Level**: `r getWaterLevel` ft
   </div>
-  <div style="border: 3px solid #ccc; padding: 0px 5px; flex: 1;">
-`r dropdown`
+  <div style="border: 3px solid #ccc; padding: 1px 5px; flex: 1;">
+**Runtime since `r getDateSelected`:** `r getRuntime`
+  </div>
+  <div style="border: 3px solid #ccc; padding: 1px 5px; flex: 1;">
+**Cycles since `r getDateSelected`:** `r getCycles`
   </div>
 </div>
 
 ```{r Plot, echo=FALSE}
 # reactive function for generating plot
 renderPlotly({
-  data <- waterData() #calling waterData for most recent data
+  data <- dataFromSelected() 
+  # plots days selected
   plot <- ggplot(data, aes(x = Timestamp, y = WaterLevel)) +
     geom_line()
   ggplotly(plot)
@@ -116,26 +136,26 @@ renderPlotly({
 ```{r Basic statistics, echo = FALSE}
 getAverage <- renderText({
   data <- waterData()
-  mean(data$WaterLevel)
+  return(mean(data$WaterLevel))
 })
 getMin <- renderText({
   data <- waterData()
-  min(data$WaterLevel)
+  return(min(data$WaterLevel))
 })
 getMax <- renderText({
   data <- waterData()
-  max(data$WaterLevel)
+  return(max(data$WaterLevel))
 })
 ```
 
 <div style= "display: flex; gap: 20px">
-  <div style="border: 3px solid #ccc; padding: 0px 5px; flex: 1;">
+  <div style="border: 3px solid #ccc; padding: 1px 5px; flex: 1;">
  **Average**: `r getAverage` ft
   </div>
-  <div style="border: 3px solid #ccc; padding: 0px 5px; flex: 1;">
+  <div style="border: 3px solid #ccc; padding: 1px 5px; flex: 1;">
  **Min**: `r getMin` ft
   </div>
-  <div style="border: 3px solid #ccc; padding: 0px 5px; flex: 1;">
+  <div style="border: 3px solid #ccc; padding: 1px 5px; flex: 1;">
  **Max**: `r getMax` ft
   </div>
 </div>
