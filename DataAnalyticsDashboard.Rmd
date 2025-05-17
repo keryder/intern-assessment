@@ -82,12 +82,13 @@ getCycles <- renderText({
 ```
 
 ```{r Creating Dropdown, echo = FALSE}
-# creates a dropdown menu for counting cycles
+# creates a dropdown menu to update cycles, runtime, and plot
 dropdown <- renderUI({
   data <- waterData()
   data <- unique(data$Date)
   selectInput("cycles_select", "Cycles Since:", data)
 })
+dropdown
 ```
 
 <div style= "display: flex; gap: 20px">
