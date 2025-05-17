@@ -8,12 +8,13 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r, echo = FALSE, warning = FALSE, message = FALSE}
+# all included libraries used
 library(tidyverse)
 library(dplyr)
 library(ggplot2)
 library(shiny)
+library(plotly)
 library(hms)
-library(DT)
 ```
 
 ```{r, eval = TRUE, echo = FALSE}
@@ -29,7 +30,7 @@ waterData <- reactive({
   recent <- data%>%
     pull(Date)%>%
     unique()%>%
-    tail(5)
+    tail(3)
   # filter data to only include last 10 days
   data%>%
     filter(Date %in% recent)
@@ -38,10 +39,11 @@ waterData <- reactive({
 
 ```{r, echo = FALSE}
 # reactive function for generating plot
-renderPlot({
+renderPlotly({
   data <- waterData() #calling waterData for most recent data
-  ggplot(data, aes(x = Timestamp, y = WaterLevel)) +
-    geom_point()
+  plot <- ggplot(data, aes(x = Timestamp, y = WaterLevel)) +
+    geom_line()
+  ggplotly(plot)
 })
 ```
 
@@ -83,20 +85,20 @@ getWaterLevel <- renderText({
 })
 getCycles <- renderText({
   data <- getDataToday()
-  cycles <- 5
+  cycles <- 1
   cycles
 })
 ```
 
 <div style= "display: flex; gap: 20px">
-  <div style="border: 3px solid #ccc; padding: 3px; flex: 1;">
-### Runtime: `r getRuntime`
+  <div style="border: 3px solid #ccc; padding: 0px 5px; flex: 1;">
+**Last Runtime**: `r getRuntime`
   </div>
-  <div style="border: 3px solid #ccc; padding: 3px; flex: 1;">
-### Current Water Level: `r getWaterLevel` ft
+  <div style="border: 3px solid #ccc; padding: 0px 5px; flex: 1;">
+**Current Water Level**: `r getWaterLevel` ft
   </div>
-  <div style="border: 3px solid #ccc; padding: 3px; flex: 1;">
-### Cycles Today: `r getCycles`
+  <div style="border: 3px solid #ccc; padding: 0px 5px; flex: 1;">
+**Cycles Today**: `r getCycles`
   </div>
 </div>
 ```{r, echo = FALSE}
@@ -114,17 +116,17 @@ getMax <- renderText({
   max(data$WaterLevel)
 })
 ```
-### Overall Water Level
+### ----------------------------------------- Overall Water Level -----------------------------------------
 
 <div style= "display: flex; gap: 20px">
-  <div style="border: 3px solid #ccc; padding: 3px; flex: 1;">
-### Average: `r getAverage` ft
+  <div style="border: 3px solid #ccc; padding: 0px 5px; flex: 1;">
+ **Average**: `r getAverage` ft
   </div>
-  <div style="border: 3px solid #ccc; padding: 3px; flex: 1;">
-### Min: `r getMin` ft
+  <div style="border: 3px solid #ccc; padding: 0px 5px; flex: 1;">
+ **Min**: `r getMin` ft
   </div>
-  <div style="border: 3px solid #ccc; padding: 3px; flex: 1;">
-### Max: `r getMax` ft
+  <div style="border: 3px solid #ccc; padding: 0px 5px; flex: 1;">
+ **Max**: `r getMax` ft
   </div>
 </div>
 
