@@ -135,15 +135,15 @@ renderPlotly({
 
 ```{r Basic statistics, echo = FALSE}
 getAverage <- renderText({
-  data <- waterData()
+  data <- dataFromSelected()
   return(mean(data$WaterLevel))
 })
 getMin <- renderText({
-  data <- waterData()
+  data <- dataFromSelected()
   return(min(data$WaterLevel))
 })
 getMax <- renderText({
-  data <- waterData()
+  data <- dataFromSelected()
   return(max(data$WaterLevel))
 })
 ```
