@@ -1,6 +1,6 @@
 ---
 title: "Data Analytics Dashboard"
-output: html_document
+output: html_notebook
 runtime: shiny
 ---
 ```{r setup, include=FALSE}
@@ -17,11 +17,11 @@ library(plotly)
 library(hms)
 ```
 
-```{r, eval = TRUE, echo = FALSE}
+```{r Fetching Data, eval=TRUE, echo=FALSE}
 # reactive function so any updates to data will update the app
 waterData <- reactive({
   # read_delim instead of read_csv2 so doubles are read correctly
-  data <- read_delim("RawData.csv", delim = ";")
+  data <- read_delim("https://raw.githubusercontent.com/keryder/intern-assessment/main/RawData.csv", delim = ";")
   # create new columns for dates and times
   data<- mutate(data, Date = substring(Timestamp, 1, 10))
   # converting to hms format, format specified to avoid lossy conversions
@@ -37,17 +37,7 @@ waterData <- reactive({
 })
 ```
 
-```{r, echo = FALSE}
-# reactive function for generating plot
-renderPlotly({
-  data <- waterData() #calling waterData for most recent data
-  plot <- ggplot(data, aes(x = Timestamp, y = WaterLevel)) +
-    geom_line()
-  ggplotly(plot)
-})
-```
-
-```{r, echo = FALSE}
+```{r Getting Stats, echo = FALSE}
 # gets all data taken from current day
 getDataToday <- reactive({
   data <- waterData()
@@ -84,9 +74,19 @@ getWaterLevel <- renderText({
   waterLevel
 })
 getCycles <- renderText({
+  
   data <- getDataToday()
   cycles <- 1
   cycles
+})
+```
+
+```{r Creating Dropdown, echo = FALSE}
+# creates a dropdown menu for counting cycles
+dropdown <- renderUI({
+  data <- waterData()
+  data <- unique(data$Date)
+  selectInput("cycles_select", "Cycles Since:", data)
 })
 ```
 
@@ -98,11 +98,21 @@ getCycles <- renderText({
 **Current Water Level**: `r getWaterLevel` ft
   </div>
   <div style="border: 3px solid #ccc; padding: 0px 5px; flex: 1;">
-**Cycles Today**: `r getCycles`
+`r dropdown`
   </div>
 </div>
-```{r, echo = FALSE}
-# Basic statistics
+
+```{r Plot, echo=FALSE}
+# reactive function for generating plot
+renderPlotly({
+  data <- waterData() #calling waterData for most recent data
+  plot <- ggplot(data, aes(x = Timestamp, y = WaterLevel)) +
+    geom_line()
+  ggplotly(plot)
+})
+```
+
+```{r Basic statistics, echo = FALSE}
 getAverage <- renderText({
   data <- waterData()
   mean(data$WaterLevel)
@@ -116,7 +126,6 @@ getMax <- renderText({
   max(data$WaterLevel)
 })
 ```
-### ----------------------------------------- Overall Water Level -----------------------------------------
 
 <div style= "display: flex; gap: 20px">
   <div style="border: 3px solid #ccc; padding: 0px 5px; flex: 1;">
